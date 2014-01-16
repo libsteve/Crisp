@@ -1,6 +1,6 @@
 #include "include/cons.hpp"
 #include "include/context.hpp"
-using namespace mylisp;
+using namespace crisp;
 
 int main() {
     std::cout << std::boolalpha;

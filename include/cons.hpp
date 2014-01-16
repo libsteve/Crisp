@@ -1,11 +1,11 @@
-#ifndef CONS_HPP
-#define CONS_HPP
+#ifndef CRISP_CONS_HPP
+#define CRISP_CONS_HPP
 
 #include <boost/variant.hpp>
 #include <ostream>
 #include <functional>
 
-namespace mylisp {
+namespace crisp {
 
 struct unit {} null;
 inline std::ostream& operator << (std::ostream& os, unit& u) {

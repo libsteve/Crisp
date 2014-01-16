@@ -1,10 +1,10 @@
-#ifndef CONTEXT_HPP
-#define CONTEXT_HPP
+#ifndef CRISP_CONTEXT_HPP
+#define CRISP_CONTEXT_HPP
 
 #include "cons.hpp"
 #include <functional>
 
-namespace mylisp {
+namespace crisp {
 
 template <typename... T>
 struct context {
