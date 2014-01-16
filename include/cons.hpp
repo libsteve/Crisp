@@ -49,6 +49,48 @@ struct cons {
     value& car() { return _car; }
     value& cdr() { return _cdr; }
 
+    void setCar(value& v) { _car = v; }
+    void setCdr(value& v) { _cdr = v; }
+
+    // returns true if the given function returned true at some point
+    // returns false otherwise
+    // the given function should return true to stop the iteration
+    bool foreach(std::function<bool(value&)> fn) {
+        value ctx = *this;
+        while (ctx.which() == isCons) {
+            cons_ptr c = boost::get<cons_ptr>(ctx);
+            if (fn(c->car())) {
+                return true;
+            }
+            ctx = c->cdr();
+        }
+        return false;
+    }
+
+    cons_t map(std::function<value(value)> fn) {
+        if (cdr().which() == isCons) {
+            value& v = boost::get<cons_ptr>(cdr())->map(fn);
+            return cons_t(fn(car()), v);
+        }
+        return cons_t(fn(car), null);
+    }
+
+    // an enum type for use with boost::variant::which()
+    enum whichValue {
+        isNull = 0,
+        isCons,
+        isFirst,
+        isSecond,
+        isThird,
+        isFourth,
+        isFifth,
+        isSixth,
+        isSeventh,
+        isEigth,
+        isNinth,
+        isTenth
+    };
+
 private:
     value _car;
     value _cdr;
