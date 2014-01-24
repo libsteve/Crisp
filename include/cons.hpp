@@ -75,6 +75,13 @@ struct cons {
         return cons_t(fn(car), null);
     }
 
+    int length() const {
+        if (_cdr.which() == isCons) {
+            return 1 + boost::get<cons_ptr>(_cdr)->length();
+        }
+        return 1;
+    }
+
     // an enum type for use with boost::variant::which()
     enum whichValue {
         isNull = 0,

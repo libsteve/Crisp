@@ -6,114 +6,106 @@
 
 namespace crisp {
 
-template <typename... T>
-struct context {
-    using cons_t = typename cons<T...>::cons_t;
-    using cons_ptr = typename cons<T...>::cons_ptr;
-    using value = typename cons<T...>::value;
-    using whichValue = typename cons<T...>::whichValue;
-
-    #define make_cons std::make_shared<cons_t>
-    #define get_cons boost::get<cons_ptr>
-
-    context() : _context(make_cons(cons_t(null))) {}
-
-    void enterScope() {
-        _context = make_cons(cons_t(null, _context));
-    }
-
-    void exitScope() {
-        // we cannot exit the global scope
-        if (_context->cdr().which() == cons_t::isCons) {
-            _context = get_cons(_context->cdr());
-        }
-    }
-
-    value& addKeyValue(value& k, value& v) {
-        cons_t key_value_pair = cons_t(k, cons_t(v, null));
-        cons_t scope = cons_t(key_value_pair, cons_t(_context->car(), null));
-        _context = make_cons(cons_t(scope, _context->cdr()));
-        return v;
-    }
-
-    template <typename key_t>
-    cons_ptr& findKeyValuePair(value& key) {
-        auto get_value = [](value& v) { return get_cons(v)->car(); };
-        auto get_next = [](value& v) { return get_cons(v)->cdr(); };
-        auto get = [](value& v) { return boost::get<key_t>(v); };
-
-        /*// look in every scope in the context
-        value _ctx = _context;
-        while (_ctx.which() == cons_t::isCons) {
-            // look in every pair in the scope
-            value scope = get_value(_ctx);
-            while (scope.which() == cons_t::isCons) {
-                value& pair = get_value(scope);
-                if (pair.which() == cons_t::isCons
-                    && get_value(pair).which() == key.which()
-                    && get(get_value(pair)) == get(key))
-                    return get_cons(pair);
-                }
-                scope = get_next(scope);
+struct atom {
+    atom(const std::string& s) {
+        bool initialized = false;
+        for (std::string *a : allocated) {
+            if (*a == s) {
+                string = a;
+                initialized = true;
+                break;
             }
-            _ctx = get_next(_ctx);
-        }*/
-
-        cons_ptr result;
-        _context->foreach([&](value& scope) {
-            if (scope.which() == cons_t::isCons) {
-                return get_cons(scope)->foreach([&](value& pair) {
-                    if (pair.which() == cons_t::isCons
-                        && get_value(pair).which() == key.which()
-                        && get(get_value(pair)) == get(key)) {
-                        result = get_cons(pair);
-                        return true;
-                    }
-                    return false;
-                });
-            }
-            return false;
-        });
-        return result; // null shared pointer
-    }
-
-    template <typename key_t>
-    struct NoKeyException : std::exception {
-        NoKeyException(key_t& k) : _key(k) {}
-        
-        friend std::ostream& operator << (std::ostream& os, 
-                                          NoKeyException<key_t>& e) {
-            return os << "No value for key \"" << e._key << "\" in scope.";
         }
-
-        virtual const char *what() const throw() {
-            return "No value for key found.";
+        if (not initialized) {
+            string = new std::string(s);
+            allocated.push(string);
         }
-
-    private:
-        key_t _key;
-    };
-
-    template <typename key_t>
-    value& setKeyValue(value& k, value& v) throw (NoKeyException<key_t>) {
-        cons_ptr& pair = findKeyValuePair<key_t>(k);
-        if (not pair) throw NoKeyException<key_t>(k);
-        get_cons(get_cons(pair)->cdr())->setCar(v);
-        return v;
     }
 
-    template <typename key_t>
-    value& getKeyValue(value& k) throw (NoKeyException<key_t>) {
-        cons_ptr& pair = findKeyValuePair<key_t>(k);
-        if (not pair) throw NoKeyException<key_t>(k);
-        return get_cons(get_cons(pair)->cdr())->car();
+    bool operator == (const atom& a) const {
+        return a.string == string;
     }
 
-    #undef make_cons
-    #undef get_cons
+    friend std::ostream& operator << (std::ostream& os, const atom& a) {
+        return os << *a->string;
+    }
 
 private:
-    cons_ptr _context;
+    static std::vector<std::string *> allocated;
+    std::string *string;
+};
+
+
+template <typename... T> struct context;
+template <typename... T>
+struct context<atom, T...> {
+    using cons_t = typename cons<atom, T...>::cons_t;
+    using cons_ptr = typename cons_t::cons_ptr;
+    using value = typename cons_t::value;
+    using whichValue = typename cons_t::whichValue;
+
+#define mk_cons_ptr(x, y) std::make_shared(cons_t(x, y))
+
+    context() : ctx(null), ctx_stack(null), ctx_global(null) {}
+
+    void bind(const atom& key, const value& v) {
+        ctx = value(mk_cons_ptr(cons_t(a, v), ctx));
+    }
+
+    void define(const atom& key, const value& v) {
+        ctx_global = value(mk_cons_ptr(cons_t(a, v), ctx_global));
+    }
+    
+    value lookup(const atom& key) throw(std::exception) {
+        // TODO
+        // first, look for the atom in ctx
+        // then, look for the atom in ctx_global
+        // if found, return the value, otherwise, throw an exception
+    }
+
+    void set(const atom& key, const value& v) {
+        // TODO
+        // first, look for the atom in ctx
+        // then, look for the atom in ctx_global
+        // if found, set it's value
+        // otherwise, bind it's value
+    }
+
+    void push(const value& _ctx) {
+        ctx_stack = value(mk_cons_ptr(ctx, ctx_stack));
+        ctx = _ctx;
+    }
+
+    void push() {
+        push(value(null));
+    }
+
+    value capture() {
+        return ctx;
+    }
+
+    void closeover() {
+        push(capture());
+    }
+
+    value pop() {
+        value old = ctx;
+        if (ctx_stack.which() == cons_t::isCons) {
+            cons_ptr stk = boost::get<cons_ptr>(ctx_stack);
+            ctx = stk.car();
+            ctx_stack = stk.cdr();
+        } else {
+            ctx = value(null);
+        }
+        return old;
+    }
+
+#undef mk_cons_ptr
+
+private:
+    value ctx;
+    value ctx_stack;
+    value ctx_global;
 };
 
 }
