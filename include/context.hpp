@@ -7,32 +7,36 @@
 namespace crisp {
 
 struct atom {
-    atom(const std::string& s) {
+    atom(const std::string& s) : str(std::nullptr) {
         bool initialized = false;
         for (std::string *a : allocated) {
             if (*a == s) {
-                string = a;
+                str = a;
                 initialized = true;
                 break;
             }
         }
         if (not initialized) {
-            string = new std::string(s);
-            allocated.push(string);
+            str = new std::string(s);
+            allocated.push(str);
         }
     }
 
     bool operator == (const atom& a) const {
-        return a.string == string;
+        return a.str == str;
     }
 
     friend std::ostream& operator << (std::ostream& os, const atom& a) {
-        return os << *a->string;
+        return os << *a->str;
+    }
+
+    std::string string() const {
+        return *string;
     }
 
 private:
     static std::vector<std::string *> allocated;
-    std::string *string;
+    std::string *str;
 };
 
 
@@ -57,10 +61,29 @@ struct context<atom, T...> {
     }
     
     value lookup(const atom& key) throw(std::exception) {
-        // TODO
         // first, look for the atom in ctx
+        value v = ctx;
+        while (v.which() == cons_t::isCons) {
+            cons_ptr pos = boost::get<cons_ptr>(v)->car();
+            cons_ptr c = boost::get<cons_ptr>(pos);
+            if (boost::get<atom>(c.car()) == key) {
+                return c.cdr();
+            }
+            v = pos.cdr();
+        }
+
         // then, look for the atom in ctx_global
-        // if found, return the value, otherwise, throw an exception
+        v = ctx_global;
+        while (v.which() == cons_t::isCons) {
+            cons_ptr pos = boost::get<cons_ptr>(v)->car();
+            cons_ptr c = boost::get<cons_ptr>(pos);
+            if (boost::get<atom>(c.car()) == key) {
+                return c.cdr();
+            }
+            v = pos.cdr();
+        }
+
+        // TODO throw an error
     }
 
     void set(const atom& key, const value& v) {
@@ -82,10 +105,6 @@ struct context<atom, T...> {
 
     value capture() {
         return ctx;
-    }
-
-    void closeover() {
-        push(capture());
     }
 
     value pop() {
