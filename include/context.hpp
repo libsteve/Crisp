@@ -66,10 +66,10 @@ struct context<atom, T...> {
         while (v.which() == cons_t::isCons) {
             cons_ptr pos = boost::get<cons_ptr>(v)->car();
             cons_ptr c = boost::get<cons_ptr>(pos);
-            if (boost::get<atom>(c.car()) == key) {
-                return c.cdr();
+            if (boost::get<atom>(c->car()) == key) {
+                return c->cdr();
             }
-            v = pos.cdr();
+            v = pos->cdr();
         }
 
         // then, look for the atom in ctx_global
@@ -77,21 +77,49 @@ struct context<atom, T...> {
         while (v.which() == cons_t::isCons) {
             cons_ptr pos = boost::get<cons_ptr>(v)->car();
             cons_ptr c = boost::get<cons_ptr>(pos);
-            if (boost::get<atom>(c.car()) == key) {
-                return c.cdr();
+            if (boost::get<atom>(c->car()) == key) {
+                return c->cdr();
             }
-            v = pos.cdr();
+            v = pos->cdr();
         }
 
-        // TODO throw an error
+        struct badlookup : std::exception {
+            badlookup(const atom& key) : _key(std::string("BAD LOOKUP: Value for key (") + key.string() + std::string(") not found.")) {}
+            virtual const char *what() {
+                return _key.c_str();
+            }
+            std::string _key;
+        };
+        throw dynamic_cast<std::exception>(badlookup(key));
     }
 
     void set(const atom& key, const value& v) {
-        // TODO
         // first, look for the atom in ctx
+        value v = ctx;
+        while (v.which() == cons_t::isCons) {
+            cons_ptr pos = boost::get<cons_ptr>(v)->car();
+            cons_ptr c = boost::get<cons_ptr>(pos);
+            if (boost::get<atom>(c->car()) == key) {
+                c->setCdr(c); // set the value
+                return;
+            }
+            v = pos->cdr();
+        }
+
         // then, look for the atom in ctx_global
-        // if found, set it's value
+        v = ctx_global;
+        while (v.which() == cons_t::isCons) {
+            cons_ptr pos = boost::get<cons_ptr>(v)->car();
+            cons_ptr c = boost::get<cons_ptr>(pos);
+            if (boost::get<atom>(c->car()) == key) {
+                c->setCdr(c); // set the value
+                return;
+            }
+            v = pos->cdr();
+        }
+
         // otherwise, bind it's value
+        bind(key, v);
     }
 
     void push(const value& _ctx) {
